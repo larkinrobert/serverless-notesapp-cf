@@ -1,0 +1,230 @@
+#The lines commented out are either not needed, or I don't know the syntax yet.
+#Some links for research:
+#https://www.reddit.com/r/aws/comments/3n4n5l/has_anyone_setup_apigateway_with_cognito_to/
+#http://docs.aws.amazon.com/cognito/latest/developerguide/iam-roles.html
+Resources:
+ tablenotes: 
+  Type: "AWS::DynamoDB::Table"
+  Properties: 
+   AttributeDefinitions: 
+    - 
+   AttributeName: noteid
+     AttributeType: S
+    - 
+   AttributeName: userid
+     AttributeType: S
+   KeySchema: 
+    - 
+   AttributeName: userid
+     KeyType: HASH
+    - 
+   AttributeName: noteid
+     KeyType: RANGE
+   ProvisionedThroughput: 
+    ReadCapacityUnits: 5
+    WriteCapacityUnits: 5
+
+  NotesAppBucket:
+    Type: "AWS::S3::Bucket"
+    Properties: 
+      #AccessControl: String
+      #BucketName: String
+      CorsConfiguration:
+        CorsRules:
+        - AllowedHeaders:
+            - "*"
+          AllowedMethods:
+            - GET
+            - PUT
+            - POST
+            - HEAD
+          AllowedOrigins:
+            - "*"
+        #  ExposedHeaders:
+        #    - String
+        #  Id: String
+          MaxAge: 3000
+      #LifecycleConfiguration:
+      #  Lifecycle Configuration
+      #LoggingConfiguration:
+      #  Logging Configuration
+      #NotificationConfiguration:
+      #  Notification Configuration
+      #ReplicationConfiguration:
+      #  Replication Configuration
+      #Tags:
+      #  - Resource Tag
+      #VersioningConfiguration:
+      #  Versioning Configuration
+      #WebsiteConfiguration:
+      #  Website Configuration Type
+
+  NotesUserPool:
+    #http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html
+    Type: "AWS::Cognito::UserPool"
+    Properties:
+      #  AdminCreateUserConfig: 
+      #    AllowAdminCreateUserOnly: Yes
+      #  AliasAttributes: 
+      #    - String
+      AutoVerifiedAttributes: 
+        - email
+      #  DeviceConfiguration: 
+      #    DeviceConfiguration
+      #  EmailConfiguration: 
+      #    EmailConfiguration
+      #  EmailVerificationMessage: String
+      #  EmailVerificationSubject: String
+      #  LambdaConfig: 
+      #    LambdaConfig
+      #  MfaConfiguration: String
+      #  Policies: 
+      #    Policies
+      UserPoolName: "NotesUserPool"
+      #  Schema: 
+      #    - SchemaAttribute
+      #  SmsAuthenticationMessage: String
+      #  SmsConfiguration: 
+      #    SmsConfiguration
+      #  SmsVerificationMessage: String
+      #  UserPoolTags: 
+      #    String: String
+
+#This one needs the ARN of the pool created above. (Ref)
+#http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpoolclient.html
+#Same as the "Add app client" in the gui(?)
+  NotesAppClient:
+    Type: "AWS::Cognito::UserPoolClient"
+    Properties:
+        ClientName: notesapp,
+    #    ExplicitAuthFlows: 
+    #      - String
+        GenerateSecret: No
+    #    ReadAttributes: 
+    #      - String
+    #    RefreshTokenValidity: Integer
+        UserPoolId: !Ref NotesUserPool
+    #    WriteAttributes: 
+    #      - String
+    
+# http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypool.html
+# this one needs a policy document?
+  NotesIdPool:
+    Type: "AWS::Cognito::IdentityPool"
+    Properties:
+      IdentityPoolName: "notes identity pool"
+      AllowUnauthenticatedIdentities: No
+      #DeveloperProviderName: sansauth
+      #SupportedLoginProviders: 
+      #  String: String
+      CognitoIdentityProviders: 
+      - ClientId:
+          Ref: NotesAppClient
+        ProviderName:
+          Fn::Join:
+          - '/'
+          - - 'cognito-idp.us-east-1.amazonaws.com'
+            - Ref: NotesUserPool
+          #!Join [ "/", [ cognito-idp.us-east-1.amazonaws.com, Ref! NotesUserPool ]]
+        ServerSideTokenCheck: No
+      #SamlProviderARNs: 
+      #  - String
+      #OpenIdConnectProviderARNs: 
+      #  - String
+      #CognitoStreams: 
+      #  - CognitoStreams
+      #PushSync: 
+      #  - PushSync
+      #CognitoEvents: 
+      #  String: String
+
+#These two conditions need to be converted to yaml and added to the AssumeRolePolicyDocument.  
+#"us-east-2:22b09f08-ef6d-40af-8c19-8edf6b9d9276" is probably the identity pool id.
+#       "Condition": {
+#        "StringEquals": {
+#          "cognito-identity.amazonaws.com:aud": "us-east-2:22b09f08-ef6d-40af-8c19-8edf6b9d9276"
+#        },
+#        "ForAnyValue:StringLike": {
+#          "cognito-identity.amazonaws.com:amr": "authenticated"
+      
+  CognitoAuthenticatedRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      #Description: "Cognito Authenticated Role with notes policy"
+      #Groups:
+      #  - String
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal: 
+              Federated: "cognito-identity.amazonaws.com"
+            Action:
+              - "sts:AssumeRoleWithWebIdentity"
+            Condition:
+              StringEquals:
+                "cognito-identity.amazonaws.com:aud": !Ref NotesIdPool
+              "ForAnyValue:StringLike":  
+                  "cognito-identity.amazonaws.com:amr": "authenticated"
+      Path: "/"
+      Policies:
+        -
+          PolicyName: "CognitoAuthenticatedRolePolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: Allow
+                Action: "mobileanalytics:PutEvents"
+                Resource: "*"
+              -
+                Effect: Allow
+                Action: "cognito-sync:*"
+                Resource: "*"
+              -
+                Effect: Allow
+                Action: "cognito-identity:*"
+                Resource: "*"
+              -
+                Effect: Allow
+                Action: "s3:*"
+                Resource:
+                    Fn::Join:
+                      - ""
+                      -
+                        - "arn:aws:s3:::"
+                        -
+                          Ref: NotesAppBucket
+                        - "/${cognito-identity.amazonaws.com:sub}/*"
+#      Roles:
+#        - String
+#      Users:
+#        - String
+#      ManagedPolicyName: String
+    
+#http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-identitypoolroleattachment.html
+#Role->authenticated->[point to the role and not the policy], how?
+  NotesIdRoleAttach:
+    Type: "AWS::Cognito::IdentityPoolRoleAttachment"
+    Properties:
+      IdentityPoolId: !Ref NotesIdPool
+#      RoleMappings: 
+#        AmbiguousRoleResolution: AuthenticatedRole
+#        RulesConfiguration: RulesConfiguration
+#        Type: Roles
+      Roles:
+        authenticated:
+          Fn::GetAtt:
+            - CognitoAuthenticatedRole
+            - Arn
+          
+  
+Outputs:
+  MyUserPoolId:
+    Description: "My User Pool Id"
+    Value: !Ref NotesUserPool
+      
+  MyIdPoolId:
+    Description: "My Identity Pool Id"
+    Value: !Ref NotesAppClient
