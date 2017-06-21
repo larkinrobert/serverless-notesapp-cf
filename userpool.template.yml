@@ -3,26 +3,26 @@
 #https://www.reddit.com/r/aws/comments/3n4n5l/has_anyone_setup_apigateway_with_cognito_to/
 #http://docs.aws.amazon.com/cognito/latest/developerguide/iam-roles.html
 Resources:
- tablenotes: 
-  Type: "AWS::DynamoDB::Table"
-  Properties: 
-   AttributeDefinitions: 
-    - 
-   AttributeName: noteid
-     AttributeType: S
-    - 
-   AttributeName: userid
-     AttributeType: S
-   KeySchema: 
-    - 
-   AttributeName: userid
-     KeyType: HASH
-    - 
-   AttributeName: noteid
-     KeyType: RANGE
-   ProvisionedThroughput: 
-    ReadCapacityUnits: 5
-    WriteCapacityUnits: 5
+  tablenotes: 
+   Type: "AWS::DynamoDB::Table"
+   Properties: 
+    AttributeDefinitions: 
+     - 
+       AttributeName: "noteid"
+       AttributeType: "S"
+     - 
+       AttributeName: "userid"
+       AttributeType: "S"
+    KeySchema: 
+     - 
+       AttributeName: "userid"
+       KeyType: "HASH"
+     - 
+       AttributeName: "noteid"
+       KeyType: "RANGE"
+    ProvisionedThroughput: 
+     ReadCapacityUnits: "5"
+     WriteCapacityUnits: "5"
 
   NotesAppBucket:
     Type: "AWS::S3::Bucket"
