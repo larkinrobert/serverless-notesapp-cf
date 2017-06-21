@@ -59,6 +59,68 @@ Resources:
       #WebsiteConfiguration:
       #  Website Configuration Type
 
+  NotesAppAssetsBucket:
+    Type: "AWS::S3::Bucket"
+    Properties: 
+      #AccessControl: String
+      #BucketName: String
+#      CorsConfiguration:
+#        CorsRules:
+#        - AllowedHeaders:
+#            - "*"
+#          AllowedMethods:
+#            - GET
+#            - PUT
+#            - POST
+#            - HEAD
+#          AllowedOrigins:
+#            - "*"
+        #  ExposedHeaders:
+        #    - String
+        #  Id: String
+      #    MaxAge: 3000
+      #LifecycleConfiguration:
+      #  Lifecycle Configuration
+      #LoggingConfiguration:
+      #  Logging Configuration
+      #NotificationConfiguration:
+      #  Notification Configuration
+      #ReplicationConfiguration:
+      #  Replication Configuration
+      #Tags:
+      #  - Resource Tag
+      #VersioningConfiguration:
+      #  Versioning Configuration
+      WebsiteConfiguration:
+        ErrorDocument: index.html
+        IndexDocument: index.html
+      
+  AssetsBucketPolicy: 
+    Type: "AWS::S3::BucketPolicy"
+    Properties: 
+      Bucket: 
+        Ref: NotesAppAssetsBucket
+      PolicyDocument: 
+        Statement: 
+          - 
+            Action: 
+              - "s3:GetObject"
+            Effect: "Allow"
+            Resource: 
+              Fn::Join: 
+                - ""
+                - 
+                  - "arn:aws:s3:::"
+                  - 
+                    Ref: NotesAppAssetsBucket
+                  - "/*"
+            Principal: "*"
+#            Condition: 
+#              StringLike: 
+#                aws:Referer: 
+#                  - "http://www.example.com/*"
+#                  - "http://example.com/*"      
+      
   NotesUserPool:
     #http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cognito-userpool.html
     Type: "AWS::Cognito::UserPool"
@@ -123,7 +185,7 @@ Resources:
         ProviderName:
           Fn::Join:
           - '/'
-          - - 'cognito-idp.us-east-1.amazonaws.com'
+          - - 'cognito-idp.us-east-2.amazonaws.com'
             - Ref: NotesUserPool
           #!Join [ "/", [ cognito-idp.us-east-1.amazonaws.com, Ref! NotesUserPool ]]
         ServerSideTokenCheck: No
@@ -218,7 +280,63 @@ Resources:
           Fn::GetAtt:
             - CognitoAuthenticatedRole
             - Arn
-          
+
+  NotesAppCloudFrontDistribution:            
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+#        Aliases:
+#          - String
+#        CacheBehaviors:
+#          CacheBehavior
+#        Comment: String
+#        CustomErrorResponses:
+#          CustomErrorResponse
+        DefaultCacheBehavior:
+#          AllowedMethods:
+#            - String
+#          CachedMethods:
+#            - String
+          Compress: Yes
+#          DefaultTTL: Number
+          ForwardedValues:
+#            Cookies:
+#              Cookies
+#            Headers:
+#              - String
+            QueryString: False
+#            QueryStringCacheKeys:
+#              - String
+#          MaxTTL: Number
+#          MinTTL: Number
+#          SmoothStreaming: Boolean
+          TargetOriginId: S3Origin
+#          TrustedSigners:
+#            - String
+          ViewerProtocolPolicy : allow-all
+#          DefaultRootObject: index.html
+        Enabled: Yes
+#        HttpVersion: String
+#        Logging:
+#          Logging
+        Origins:
+        - DomainName:
+            Fn::GetAtt:
+              - NotesAppAssetsBucket
+              - DomainName
+          Id: S3Origin
+          CustomOriginConfig:
+            HTTPPort: 80
+            HTTPSPort: 443
+            OriginProtocolPolicy: match-viewer
+            
+#        PriceClass: String
+#        Restrictions:
+#          Restriction
+#        ViewerCertificate:
+#          ViewerCertificate
+#        WebACLId: String
+            
   
 Outputs:
   MyUserPoolId:
